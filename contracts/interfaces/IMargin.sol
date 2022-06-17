@@ -94,6 +94,9 @@ interface IMargin {
     /// @notice get factory address
     function factory() external view returns (address);
 
+    /// @notice get comptroller address
+    function comptroller() external view returns (address);
+
     /// @notice get config address
     function config() external view returns (address);
 

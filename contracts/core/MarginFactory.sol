@@ -8,6 +8,8 @@ import "../interfaces/IMarginFactory.sol";
 contract MarginFactory is IMarginFactory {
     address public immutable override upperFactory; // PairFactory
     address public immutable override config;
+    address public override treasury;
+    address public override treasurySetter;
 
     // baseToken => quoteToken => margin
     mapping(address => mapping(address => address)) public override getMargin;
@@ -17,11 +19,12 @@ contract MarginFactory is IMarginFactory {
         _;
     }
 
-    constructor(address upperFactory_, address config_) {
+    constructor(address upperFactory_, address config_, address treasurySetter_) {
         require(upperFactory_ != address(0), "MarginFactory: ZERO_UPPER");
         require(config_ != address(0), "MarginFactory: ZERO_CONFIG");
         upperFactory = upperFactory_;
         config = config_;
+        treasurySetter = treasurySetter_;
     }
 
     function createMargin(address baseToken, address quoteToken) external override onlyUpper returns (address margin) {
@@ -46,5 +49,15 @@ contract MarginFactory is IMarginFactory {
         address margin = getMargin[baseToken][quoteToken];
         require(margin != address(0), "MarginFactory.initMargin: ZERO_MARGIN");
         IMargin(margin).initialize(baseToken, quoteToken, amm);
+    }
+
+    function setTreasury(address treasury_) external override {
+        require(msg.sender == treasurySetter, "MarginFactory.setTreasury: FORBIDDEN");
+        treasury = treasury_;
+    }
+
+    function setTreasurySetter(address treasurySetter_) external override {
+        require(msg.sender == treasurySetter, "MarginFactory.setTreasurySetter: FORBIDDEN");
+        treasurySetter = treasurySetter_;
     }
 }

@@ -56,6 +56,8 @@ interface IAmm {
 
     function factory() external view returns (address);
 
+    function comptroller() external view returns (address);
+
     function config() external view returns (address);
 
     function baseToken() external view returns (address);

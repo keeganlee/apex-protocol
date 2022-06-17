@@ -10,6 +10,7 @@ import "../interfaces/IMargin.sol";
 import "../interfaces/IVault.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../interfaces/IWETH.sol";
+import "../interfaces/IPairFactory.sol";
 import "../utils/Reentrant.sol";
 import "../libraries/SignedMath.sol";
 import "../libraries/ChainAdapter.sol";
@@ -18,6 +19,7 @@ contract Margin is IMargin, IVault, Reentrant {
     using SignedMath for int256;
 
     address public immutable override factory;
+    address public immutable override comptroller;
     address public override config;
     address public override amm;
     address public override baseToken;
@@ -32,6 +34,7 @@ contract Margin is IMargin, IVault, Reentrant {
 
     constructor() {
         factory = msg.sender;
+        comptroller = IPairFactory(IAmmFactory(factory).upperFactory()).comptroller();
     }
 
     function initialize(

@@ -9,6 +9,7 @@ contract MyAmm is IAmm, LiquidityERC20  {
     uint256 public constant override MINIMUM_LIQUIDITY = 10**3;
 
     address public override factory;
+    address public override comptroller;
     address public override config;
     address public override baseToken;
     address public override quoteToken;

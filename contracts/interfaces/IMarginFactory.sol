@@ -12,9 +12,17 @@ interface IMarginFactory {
         address amm
     ) external;
 
+    function setTreasury(address) external;
+
+    function setTreasurySetter(address) external;
+
     function upperFactory() external view returns (address);
 
     function config() external view returns (address);
+
+    function treasury() external view returns (address);
+
+    function treasurySetter() external view returns (address);
 
     function getMargin(address baseToken, address quoteToken) external view returns (address margin);
 }

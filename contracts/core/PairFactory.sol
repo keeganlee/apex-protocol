@@ -11,9 +11,11 @@ import "../utils/Ownable.sol";
 contract PairFactory is IPairFactory, Ownable {
     address public override ammFactory;
     address public override marginFactory;
+    address public immutable override comptroller;
 
-    constructor() {
+    constructor(address comptroller_) {
         owner = msg.sender;
+        comptroller = comptroller_;
     }
 
     function init(address ammFactory_, address marginFactory_) external onlyOwner {

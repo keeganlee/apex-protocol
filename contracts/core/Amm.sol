@@ -24,6 +24,7 @@ contract Amm is IAmm, LiquidityERC20, Reentrant {
     uint256 public constant override MINIMUM_LIQUIDITY = 10**3;
 
     address public immutable override factory;
+    address public immutable override comptroller;
     address public override config;
     address public override baseToken;
     address public override quoteToken;
@@ -49,6 +50,7 @@ contract Amm is IAmm, LiquidityERC20, Reentrant {
 
     constructor() {
         factory = msg.sender;
+        comptroller = IPairFactory(IAmmFactory(factory).upperFactory()).comptroller();
     }
 
     function initialize(

@@ -6,6 +6,8 @@ interface IPairFactory {
 
     function createPair(address baseToken, address quotoToken) external returns (address amm, address margin);
 
+    function comptroller() external view returns (address);
+
     function ammFactory() external view returns (address);
 
     function marginFactory() external view returns (address);
