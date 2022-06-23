@@ -19,11 +19,11 @@ contract MyAmm is IAmm, LiquidityERC20  {
     uint256 public override price1CumulativeLast;
 
     uint256 public override lastPrice;
+    uint32 public override lastRebaseTime;
 
     uint112 private baseReserve;
     uint112 private quoteReserve;
-    uint32 private blockTimestampLast;
-
+    
     constructor() {
         factory = msg.sender;
     }
@@ -90,10 +90,6 @@ contract MyAmm is IAmm, LiquidityERC20  {
 
     }
 
-    function collectFee() external override returns (bool) {
-        
-    }
-
     function getReserves()
         external
         view override
@@ -105,7 +101,7 @@ contract MyAmm is IAmm, LiquidityERC20  {
     {
         reserveBase = baseReserve;
         reserveQuote = quoteReserve;
-        blockTimestamp = blockTimestampLast;
+        blockTimestamp = lastRebaseTime;
     }
 
     function estimateSwap(
@@ -117,11 +113,4 @@ contract MyAmm is IAmm, LiquidityERC20  {
 
     }
 
-    function getFeeLiquidity() external override view returns (uint256) {
-
-    }
-
-    function getTheMaxBurnLiquidity() external override view returns (uint256 maxLiquidity) {
-
-    }
 }
