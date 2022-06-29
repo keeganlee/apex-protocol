@@ -47,6 +47,11 @@ contract Amm is IAmm, LiquidityERC20, Reentrant {
         _;
     }
 
+    modifier onlyRouter() {
+        require(IConfig(config).routerMap(msg.sender), "Amm: ONLY_ROUTER");
+        _;
+    }
+
     constructor() {
         factory = msg.sender;
     }
@@ -70,14 +75,13 @@ contract Amm is IAmm, LiquidityERC20, Reentrant {
         external
         override
         nonReentrant
+        onlyRouter
         returns (
             uint256 baseAmount,
             uint256 quoteAmount,
             uint256 liquidity
         )
     {
-        // only router can add liquidity
-        require(IConfig(config).routerMap(msg.sender), "Amm.mint: FORBIDDEN");
         baseAmount = IERC20(baseToken).balanceOf(address(this));
         (quoteAmount, liquidity) = IComptroller(comptroller).mintLiquidity(address(this), baseAmount);
         _mint(to, liquidity);
@@ -98,14 +102,13 @@ contract Amm is IAmm, LiquidityERC20, Reentrant {
         external
         override
         nonReentrant
+        onlyRouter
         returns (
             uint256 baseAmount,
             uint256 quoteAmount,
             uint256 liquidity
         )
     {
-        // only router can burn liquidity
-        require(IConfig(config).routerMap(msg.sender), "Amm.burn: FORBIDDEN");
         liquidity = balanceOf[address(this)];
         (baseAmount, quoteAmount) = IComptroller(comptroller).burnLiquidity(address(this), liquidity);
 

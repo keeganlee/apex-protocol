@@ -12,12 +12,12 @@ import "../libraries/SignedMath.sol";
 contract Comptroller is IComptroller {
     using SignedMath for int256;
 
-    function addMarginAllowed(address margin, address trader, uint256 depositAmount) external override returns (bool) {
-
-    }
-
-    function addMarginVerify(address margin, address trader, uint256 depositAmount) external override {
-
+    function addMarginAllowed(address margin, uint256 depositAmount) external view override returns (bool) {
+        address baseToken = IMargin(margin).baseToken();
+        uint256 reserve = IMargin(margin).reserve();
+        uint256 balance = IERC20(baseToken).balanceOf(margin);
+        require(depositAmount <= balance - reserve, "Comptroller.addMarginAllowed: WRONG_DEPOSIT_AMOUNT");
+        return true;
     }
 
     function removeMarginAllowed(address margin, address trader, uint256 withdrawAmount) external override returns (bool) {
@@ -50,6 +50,75 @@ contract Comptroller is IComptroller {
 
     function liquidateVerify(address margin, address trader) external override {
 
+    }
+
+    function getWithdrawable(address margin, address holder) external view returns (uint256 amount) {
+        (int256 baseSize, int256 quoteSize, uint256 tradeSize) = IMargin(margin).getPosition(holder);
+        int256 fundingFee = IMargin(margin).calFundingFee(holder);
+        baseSize = baseSize + fundingFee;
+        IConfig config = IConfig(IMargin(margin).config());
+        if (quoteSize == 0) {
+            amount = baseSize <= 0 ? 0 : baseSize.abs();
+        } else if (quoteSize < 0) {
+            uint256 baseAmount = IPriceOracle(config.priceOracle()).getMarkPriceAcc(
+                IMargin(margin).amm(),
+                IConfig(config).beta(),
+                quoteSize.abs(),
+                true
+            );
+
+            uint256 a = baseAmount * 10000;
+            uint256 b = (10000 - IConfig(config).initMarginRatio());
+            //calculate how many base needed to maintain current position
+            uint256 baseNeeded = a / b;
+            if (a % b != 0) {
+                baseNeeded += 1;
+            }
+            //borrowed - repay, earn when borrow more and repay less
+            unrealizedPnl = int256(1).mulU(tradeSize).subU(baseAmount);
+            amount = baseSize.abs() <= baseNeeded ? 0 : baseSize.abs() - baseNeeded;
+        } else {
+            uint256 baseAmount = IPriceOracle(config.priceOracle()).getMarkPriceAcc(
+                IMargin(margin).amm(),
+                IConfig(config).beta(),
+                quoteSize.abs(),
+                false
+            );
+
+            uint256 baseNeeded = (baseAmount * (10000 - config.initMarginRatio())) / 10000;
+            //repay - lent, earn when lent less and repay more
+            unrealizedPnl = int256(1).mulU(baseAmount).subU(tradeSize);
+            int256 remainBase = baseSize.addU(baseNeeded);
+            amount = remainBase <= 0 ? 0 : remainBase.abs();
+        }
+    }
+
+    function getUnrealizePnl(address margin, address holder) external view returns (uint256 unrealizedPnl) {
+        (int256 baseSize, int256 quoteSize, uint256 tradeSize) = IMargin(margin).getPosition(holder);
+        int256 fundingFee = IMargin(margin).calFundingFee(holder);
+        baseSize = baseSize + fundingFee;
+        IConfig config = IConfig(IMargin(margin).config());
+        if (quoteSize == 0) {
+            unrealizedPnl = 0;
+        } else if (quoteSize < 0) {
+            uint256 baseAmount = IPriceOracle(config.priceOracle()).getMarkPriceAcc(
+                IMargin(margin).amm(),
+                IConfig(config).beta(),
+                quoteSize.abs(),
+                true
+            );
+            //borrowed - repay, earn when borrow more and repay less
+            unrealizedPnl = int256(1).mulU(tradeSize).subU(baseAmount);
+        } else {
+            uint256 baseAmount = IPriceOracle(config.priceOracle()).getMarkPriceAcc(
+                IMargin(margin).amm(),
+                IConfig(config).beta(),
+                quoteSize.abs(),
+                false
+            );
+            //repay - lent, earn when lent less and repay more
+            unrealizedPnl = int256(1).mulU(baseAmount).subU(tradeSize);
+        }
     }
 
     function mintLiquidity(address amm, uint256 baseAmount) external view override returns (uint256 quoteAmount, uint256 liquidity) {

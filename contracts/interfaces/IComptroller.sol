@@ -2,8 +2,7 @@
 pragma solidity ^0.8.0;
 
 interface IComptroller {
-    function addMarginAllowed(address margin, address trader, uint256 depositAmount) external returns (bool);
-    function addMarginVerify(address margin, address trader, uint256 depositAmount) external;
+    function addMarginAllowed(address margin, uint256 depositAmount) external view returns (bool);
 
     function removeMarginAllowed(address margin, address trader, uint256 withdrawAmount) external returns (bool);
     function removeMarginVerify(address margin, address trader, uint256 withdrawAmount) external;
@@ -16,6 +15,16 @@ interface IComptroller {
 
     function liquidateAllowed(address margin, address trader) external returns (bool);
     function liquidateVerify(address margin, address trader) external;
+
+    function getWithdrawable(address margin, address trader) external view returns (uint256);
+
+    function calUnrealizePnl(address margin, address trader) external view returns (uint256);
+
+    function calFundingFee(address margin, address trader) external view returns (int256);
+
+    function calDebtRatio(address margin, address trader) external view returns (uint256);
+
+    function calLatestCPF(address margin) external view returns (int256);
 
     function mintLiquidity(address amm, uint256 baseAmount) external view returns (uint256 quoteAmount, uint256 liquidity);
 

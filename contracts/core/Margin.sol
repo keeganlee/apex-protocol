@@ -7,7 +7,6 @@ import "../interfaces/IAmmFactory.sol";
 import "../interfaces/IAmm.sol";
 import "../interfaces/IConfig.sol";
 import "../interfaces/IMargin.sol";
-import "../interfaces/IVault.sol";
 import "../interfaces/IPriceOracle.sol";
 import "../interfaces/IWETH.sol";
 import "../interfaces/IPairFactory.sol";
@@ -16,7 +15,7 @@ import "../utils/Reentrant.sol";
 import "../libraries/SignedMath.sol";
 import "../libraries/ChainAdapter.sol";
 
-contract Margin is IMargin, IVault, Reentrant {
+contract Margin is IMargin, Reentrant {
     using SignedMath for int256;
 
     address public immutable override factory;
@@ -25,13 +24,18 @@ contract Margin is IMargin, IVault, Reentrant {
     address public override amm;
     address public override baseToken;
     address public override quoteToken;
+    uint256 public override reserve;
     mapping(address => Position) public traderPositionMap;
     mapping(address => int256) public traderCPF; //trader's latestCPF checkpoint, to calculate funding fee
-    uint256 public override reserve;
     uint256 public lastUpdateCPF; //last timestamp update cpf
     uint256 public totalQuoteLong;
     uint256 public totalQuoteShort;
     int256 internal latestCPF; //latestCPF with 1e18 multiplied
+
+    modifier onlyRouter() {
+        require(IConfig(config).routerMap(msg.sender), "Margin: ONLY_ROUTER");
+        _;
+    }
 
     constructor() {
         factory = msg.sender;
@@ -52,18 +56,13 @@ contract Margin is IMargin, IVault, Reentrant {
 
     //@notice before add margin, ensure contract's baseToken balance larger than depositAmount
     function addMargin(address trader, uint256 depositAmount) external override nonReentrant {
-        require(IComptroller(comptroller).addMarginAllowed(address(this), trader, depositAmount), "Margin.addMargin: NOT_ALLOW_TO_ADD_MARGIN");
-
-        uint256 balance = IERC20(baseToken).balanceOf(address(this));
-        uint256 _reserve = reserve;
-        require(depositAmount <= balance - _reserve, "Margin.addMargin: WRONG_DEPOSIT_AMOUNT");
+        require(IComptroller(comptroller).addMarginAllowed(address(this), depositAmount), "Margin.addMargin: NOT_ALLOW_TO_ADD_MARGIN");
+        
         Position memory traderPosition = traderPositionMap[trader];
-
         traderPosition.baseSize = traderPosition.baseSize.addU(depositAmount);
         traderPositionMap[trader] = traderPosition;
-        reserve = _reserve + depositAmount;
+        reserve = reserve + depositAmount;
 
-        IComptroller(comptroller).addMarginVerify(address(this), trader, depositAmount);
         emit AddMargin(trader, depositAmount, traderPosition);
     }
 
@@ -72,10 +71,9 @@ contract Margin is IMargin, IVault, Reentrant {
         address trader,
         address to,
         uint256 withdrawAmount
-    ) external override nonReentrant {
+    ) external override nonReentrant onlyRouter {
         require(IComptroller(comptroller).removeMarginAllowed(address(this), trader, withdrawAmount), "Margin.removeMargin: NOT_ALLOW_TO_REMOVE_MARGIN");
         require(withdrawAmount > 0, "Margin.removeMargin: ZERO_WITHDRAW_AMOUNT");
-        require(IConfig(config).routerMap(msg.sender), "Margin.removeMargin: FORBIDDEN");
         int256 _latestCPF = updateCPF();
         Position memory traderPosition = traderPositionMap[trader];
 
@@ -121,11 +119,10 @@ contract Margin is IMargin, IVault, Reentrant {
         address trader,
         uint8 side,
         uint256 quoteAmount
-    ) external override nonReentrant returns (uint256 baseAmount) {
+    ) external override nonReentrant onlyRouter returns (uint256 baseAmount) {
         require(IComptroller(comptroller).openPositionAllowed(address(this), trader, side, quoteAmount), "Margin.openPosition: NOT_ALLOW_TO_OPEN_POSITION");
         require(side == 0 || side == 1, "Margin.openPosition: INVALID_SIDE");
         require(quoteAmount > 0, "Margin.openPosition: ZERO_QUOTE_AMOUNT");
-        require(IConfig(config).routerMap(msg.sender), "Margin.openPosition: FORBIDDEN");
         int256 _latestCPF = updateCPF();
 
         Position memory traderPosition = traderPositionMap[trader];
@@ -220,10 +217,10 @@ contract Margin is IMargin, IVault, Reentrant {
         external
         override
         nonReentrant
+        onlyRouter
         returns (uint256 baseAmount)
     {
         require(IComptroller(comptroller).closePositionAllowed(address(this), trader, quoteAmount), "Margin.closePosition: NOT_ALLOW_TO_CLOSE_POSITION");
-        require(IConfig(config).routerMap(msg.sender), "Margin.openPosition: FORBIDDEN");
         int256 _latestCPF = updateCPF();
 
         Position memory traderPosition = traderPositionMap[trader];
@@ -266,6 +263,7 @@ contract Margin is IMargin, IVault, Reentrant {
         external
         override
         nonReentrant
+        onlyRouter
         returns (
             uint256 quoteAmount,
             uint256 baseAmount,
@@ -273,7 +271,6 @@ contract Margin is IMargin, IVault, Reentrant {
         )
     {
         require(IComptroller(comptroller).liquidateAllowed(address(this), trader), "Margin.liquidate: NOT_ALLOW_TO_LIQUIDATE");
-        require(IConfig(config).routerMap(msg.sender), "Margin.openPosition: FORBIDDEN");
         int256 _latestCPF = updateCPF();
         Position memory traderPosition = traderPositionMap[trader];
         int256 baseSize = traderPosition.baseSize;
